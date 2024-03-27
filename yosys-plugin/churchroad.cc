@@ -1460,7 +1460,7 @@ struct LakeroadWorker
 
 				f << stringf("(union %s (Op1 %s %s))\n", y_let_name.c_str(), op_str.c_str(), a_let_name.c_str()).c_str();
 			}
-			else if (cell->type.in(ID($and), ID($or), ID($xor), ID($shr)))
+			else if (cell->type.in(ID($and), ID($or), ID($xor), ID($shr), ID($add)))
 			{
 				// Binary ops that preserve width.
 				assert(cell->connections().size() == 3);
@@ -1478,6 +1478,8 @@ struct LakeroadWorker
 					op_str = "(Xor)";
 				else if (cell->type == ID($shr))
 					op_str = "(Shr)";
+				else if (cell->type == ID($add))
+					op_str = "(Add)";
 				else
 					log_error("This should be unreachable. You are missing an else if branch.\n");
 
