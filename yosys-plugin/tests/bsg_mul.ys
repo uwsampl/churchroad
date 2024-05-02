@@ -1,0 +1,24 @@
+# RUN: $YOSYS -m $CHURCHROAD_DIR/yosys-plugin/churchroad.so %s \
+# RUN: | FileCheck %s
+
+read_systemverilog  bsg_mul/top.v;
+
+prep -top top;
+hierarchy -check -top top;
+splice; splitnets -driver;
+dfflibmap -liberty mycells.lib;
+clean;
+abc -liberty mycells.lib;
+read_verilog mycells.v;
+
+splice; splitnets -driver;
+clean;
+flatten;
+
+# TODO: this will remove the "asserts"
+# but introduces `$initial` cells
+clk2fflogic;
+chformal -lower;
+
+write_verilog out/top_synth.v
+write_lakeroad out/top.egg

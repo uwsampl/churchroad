@@ -22,6 +22,7 @@ RUN apt install -y \
   flex \
   g++ \
   git \
+  jq \
   libboost-filesystem-dev \
   libfl-dev \
   libfl2 \
@@ -75,6 +76,13 @@ RUN source /root/dependencies.sh \
 
 # Add /root/.local/bin to PATH.
 ENV PATH="/root/.local/bin:$PATH"
+
+# Add the synlig plugin
+RUN curl https://api.github.com/repos/chipsalliance/synlig/releases/latest \
+  | jq -r '.assets | .[] | select(.name | startswith("synlig-plugin-debian")) | .browser_download_url' \
+  | xargs wget -O - \
+  | tar -xz \
+  && ./install_plugin.sh
 
 # Build Yosys plugin.
 WORKDIR /root/churchroad/yosys-plugin
