@@ -2,7 +2,7 @@
 // encounters something like `mem[idx]` in a design.
 //
 // RUN: $YOSYS -q -m $CHURCHROAD_DIR/yosys-plugin/churchroad.so \
-// RUN:   -p 'read_verilog -sv %s; prep -top test; write_lakeroad' 
+// RUN:   -p 'read_verilog -sv %s; prep -top test; write_churchroad' 
 //    | FileCheck %s
 
 module test

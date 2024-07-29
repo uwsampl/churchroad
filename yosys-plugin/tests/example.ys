@@ -8,9 +8,9 @@ module test(input [1:0] a, input b, output o);
 endmodule
 EOF
 
-write_lakeroad
+write_churchroad
 # Write output to file.egg
-write_lakeroad file.egg
+write_churchroad file.egg
 !rm file.egg
 
 # CHECK: (let v0 (Wire "v0" 2))

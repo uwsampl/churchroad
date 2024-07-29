@@ -22,7 +22,7 @@
 // TODO(@gussmith23): are we in line with this license?
 
 // RUN: $YOSYS -q -m $CHURCHROAD_DIR/yosys-plugin/churchroad.so \
-// RUN:   -p 'read_verilog -sv %s; prep -top permuter_4x4_sim; pmuxtree; prep; write_lakeroad' \
+// RUN:   -p 'read_verilog -sv %s; prep -top permuter_4x4_sim; pmuxtree; prep; write_churchroad' \
 // RUN:   | FileCheck %s
 
 module permuter_4x4_sim #(

@@ -6,8 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-egglog = { git = "https://github.com/egraphs-good/egglog", rev = "325814fd90767b5e43c72bc2eb65e14ff0b8746c" }
+egglog = { git = "https://github.com/gussmith23/egglog", rev = "55d4f4b1a40b7ffdc73e86766e702d7581ede5ab" }
 log = "0.4.20"
 egraph-serialize = "0.1"
 rand = "0.8.4"
 indexmap = "2.0.0"
+clap = "4.5.8"
+tempfile = "3.10.1"
+env_logger = "0.11.5"
