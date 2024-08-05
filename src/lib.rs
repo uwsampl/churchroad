@@ -1,5 +1,6 @@
 use egraph_serialize::{ClassId, Node, NodeId};
 use indexmap::IndexMap;
+use log::info;
 use std::{
     collections::{HashMap, HashSet},
     env,
@@ -102,6 +103,11 @@ pub fn call_lakeroad_on_primitive_interface_and_spec(
     }
 
     let mut verilog = String::from_utf8_lossy(&output.stdout).into_owned();
+
+    info!(
+        "First few lines of generated Verilog:\n{}",
+        verilog.lines().take(10).collect::<Vec<_>>().join("\n")
+    );
 
     // TODO(@gussmith23): hardcoding the definition of DSP48E2 here. Should
     // instead take it as input to the flow at some point.
@@ -276,7 +282,6 @@ endmodule
         "out".to_string(),
         node_to_string(serialized_egraph, sketch_template_node_id, &choices),
     );
-    log::debug!("port_to_expr_map:\n{:?}", port_to_expr_map);
 
     // TODO(@gussmith23): hardcoded module name
     // Don't simcheck, because there'll be undefined modules. That's expected.

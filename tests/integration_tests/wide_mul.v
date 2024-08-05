@@ -2,7 +2,7 @@
 // RUN:   --filepath %s \
 // RUN:   --top-module-name mul \
 // RUN:   --architecture xilinx-ultrascale-plus \
-// RUN:   --svg-dirpath simple_mul_svgs \
+// RUN:   --svg-dirpath wide_mul_svgs \
 // RUN:   --simulate \
 // TODO Hardcoded
 // RUN:   --simulate-with-verilator-arg="--verilator_include_dir=/Users/gus/lakeroad-private/DSP48E2" \
@@ -18,7 +18,7 @@
 // RUN:   --simulate-with-verilator-arg="--testbench_stdout_log_filepath=tmp.txt" \
 // RUN: | FileCheck %s
 
-module mul(input [15:0] a, b, output [15:0] out);
+module mul(input [15:0] a, input [31:0] b, output [31:0] out);
   assign out = a * b;
 endmodule
 

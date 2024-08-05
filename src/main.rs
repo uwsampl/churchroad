@@ -4,13 +4,13 @@ use std::path::PathBuf;
 
 use churchroad::{
     call_lakeroad_on_primitive_interface_and_spec, find_primitive_interfaces_serialized,
-    find_spec_for_primitive_interface, from_verilog_file, to_verilog_egraph_serialize,
-    StructuralVerilogExtractor,
+    find_spec_for_primitive_interface, from_verilog_file, node_to_string,
+    to_verilog_egraph_serialize, StructuralVerilogExtractor,
 };
 use clap::ValueHint::FilePath;
 use clap::{ArgAction, Parser, ValueEnum};
 use egglog::SerializeConfig;
-use log::{debug, warn};
+use log::{debug, info, warn};
 use tempfile::NamedTempFile;
 
 /// Simple program to greet a person
@@ -67,6 +67,20 @@ fn main() {
         HashMap::default(),
     );
 
+    info!("Loaded design into egraph.");
+
+    if let Some(svg_dirpath) = &args.svg_dirpath {
+        create_dir_all(svg_dirpath).unwrap();
+        let serialized = egraph.serialize_for_graphviz(true, usize::MAX, usize::MAX);
+        serialized
+            .to_svg_file(svg_dirpath.join("initial_egraph.svg"))
+            .unwrap();
+        info!(
+            "Initial egraph svg: {}",
+            svg_dirpath.join("initial_egraph.svg").to_string_lossy()
+        );
+    }
+
     // STEP 2: Run mapping rewrites, proposing potential mappings which Lakeroad
     // will later confirm or prove not possible via program synthesis.
     //
@@ -84,6 +98,7 @@ fn main() {
     //   question! Could be a place we use ChatGPT; i.e. give it the PDF of
     //   the DSP manual, give it a description of the Churchroad IR, and ask it
     //   to propose patterns.
+    info!("Running rewrites.");
     egraph
         .parse_and_run_program(
             r#"
@@ -94,11 +109,38 @@ fn main() {
              (< n 18))
             ((union expr (PrimitiveInterfaceDSP a b)))
             :ruleset mapping)
+        ;; TODO need to write a rewrite that deals with multiplying zero extended bvs
+        (rule 
+            ((= expr (Op2 (Mul) a b))
+             (HasType expr (Bitvector n))
+             (< n 18))
+            ((union expr (PrimitiveInterfaceDSP a b)))
+            :ruleset mapping)
+        
+        (ruleset transform)
+        (rule
+            ((= expr (Op2 (Mul) (Op1 (ZeroExtend b-bw) a) b))
+             (HasType expr (Bitvector expr-bw))
+             (HasType a (Bitvector a-bw))
+             (HasType b (Bitvector b-bw))
+             (<= expr-bw 48)
+             (<= a-bw 16)
+             (<= b-bw 32)
+             (= 0 (% expr-bw 2)))
+            ((union 
+               expr 
+               (Op2 (Add)
+                (Op2 (Mul) (Op1 (ZeroExtend expr-bw) a) (Op1 (ZeroExtend expr-bw) (Op1 (Extract (- (/ expr-bw 2) 1) 0) b)))
+                (Op2 (Shl) (Op2 (Mul) (Op1 (ZeroExtend expr-bw) a) (Op1 (ZeroExtend expr-bw) (Op1 (Extract (- expr-bw 1) (/ expr-bw 2)) b))) (Op0 (BV (/ expr-bw 2) expr-bw))))))
+            :ruleset transform)
     "#,
         )
         .unwrap();
     egraph
         .parse_and_run_program("(run-schedule (saturate typing))")
+        .unwrap();
+    egraph
+        .parse_and_run_program("(run-schedule (saturate transform))")
         .unwrap();
     egraph
         .parse_and_run_program("(run-schedule (saturate mapping))")
@@ -114,6 +156,10 @@ fn main() {
         serialized
             .to_svg_file(svg_dirpath.join("after_rewrites.svg"))
             .unwrap();
+        info!(
+            "Egraph after rewrites: {}",
+            svg_dirpath.join("after_rewrites.svg").to_string_lossy()
+        );
     }
 
     let serialized_egraph = egraph.serialize(SerializeConfig::default());
@@ -133,6 +179,11 @@ fn main() {
     // both doing very similar things: basically, an extraction. They're just
     // extracting different things for the same classes.
     let node_ids = find_primitive_interfaces_serialized(&serialized_egraph);
+
+    info!(
+        "Found {} potential mappings; running Lakeroad on each.",
+        node_ids.len()
+    );
 
     // STEP 5: For each proposed mapping, attempt synthesis with Lakeroad.
     for sketch_template_node_id in &node_ids {
@@ -162,7 +213,11 @@ fn main() {
             &serialized_egraph,
         );
 
-        log::info!("Calling Lakeroad.");
+        log::info!(
+            "Calling Lakeroad with spec:\n{}\nand sketch:\n{}",
+            node_to_string(&serialized_egraph, &spec_node_id, &spec_choices),
+            serialized_egraph[sketch_template_node_id].op
+        );
 
         // STEP 5.2: Call Lakeroad.
         let commands = call_lakeroad_on_primitive_interface_and_spec(
@@ -173,13 +228,18 @@ fn main() {
             &args.architecture.to_string(),
         );
 
-        log::debug!("Got back commands:\n{}", commands);
+        log::debug!(
+            "First few lines of commands generated from Lakeroad output:\n{}",
+            commands.lines().take(10).collect::<String>()
+        );
 
         // STEP 5.3: Insert Lakeroad's results back into the egraph.
         // If Lakeroad finds a mapping, insert the mapping into the egraph.
         // If Lakeroad proves UNSAT, put some kind of marker into the egraph
         // to indicate that this mapping shouldn't be attempted again.
         egraph.parse_and_run_program(&commands).unwrap();
+
+        info!("Inserted Lakeroad's results back into egraph.");
     }
 
     // Write out image if the user requested it.
@@ -188,6 +248,10 @@ fn main() {
         serialized
             .to_svg_file(svg_dirpath.join("after_lakeroad.svg"))
             .unwrap();
+        info!(
+            "Egraph after all calls to Lakeroad: {}",
+            svg_dirpath.join("after_lakeroad.svg").to_string_lossy()
+        );
     }
 
     // STEP 6: Extract a lowered design.
@@ -203,7 +267,7 @@ fn main() {
     let choices = StructuralVerilogExtractor.extract(&serialized, &[]);
     let verilog = to_verilog_egraph_serialize(&serialized, &choices, "clk");
 
-    debug!("Got back verilog:\n{}", &verilog);
+    debug!("Final extracted Verilog:\n{}", &verilog);
 
     if let Some(out_filepath) = &args.out_filepath {
         std::fs::write(out_filepath, &verilog).unwrap();
@@ -293,5 +357,7 @@ fn main() {
                 String::from_utf8_lossy(&output.stderr)
             );
         }
+
+        info!("Simulation with Verilator succeeded.");
     }
 }

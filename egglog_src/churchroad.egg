@@ -17,6 +17,7 @@
   (Or)
   (Xor)
   (Shr)
+  (Shl)
   ; Returns a bitvector of width 1.
   (Eq)
   (Ne)
@@ -158,6 +159,7 @@
 (AllBitwidthsMatch (Or))
 (AllBitwidthsMatch (Xor))
 (AllBitwidthsMatch (Shr))
+(AllBitwidthsMatch (Shl))
 (AllBitwidthsMatch (Mul))
 ;;; TODO(@ninehusky): don't we need this here?
 (AllBitwidthsMatch (Not))
@@ -306,4 +308,7 @@
     (Op2 op 
      (Op1 (Extract 0 0) e1) (Op1 (Extract 0 0) e2))))))
 
+; TODO(@gussmith23): Figure out a better interface for these, currently just
+; adding them as needed.
 (function PrimitiveInterfaceDSP (Expr Expr) Expr)
+(function PrimitiveInterfaceDSP3 (Expr Expr Expr) Expr)
